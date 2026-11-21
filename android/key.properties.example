@@ -1,0 +1,6 @@
+# Copy to android/key.properties and fill in your own keystore.
+# The file is gitignored and must never be committed.
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=rustedproxy
+storeFile=C:/path/to/keystore.jks

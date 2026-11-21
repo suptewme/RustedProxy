@@ -1,0 +1,115 @@
+﻿2gis.ru
+3ebra.net          # zebra net bureau, web development agency
+adriver.ru @ads
+adygtelecom.com    # adygea telephone company, regional operator
+alfabank.ru
+amt-insurance.com
+apptrackpets.com   # pet gps tracker service (yandex cloud, reg.ru)
+avito.ru
+banki.ru
+beeline.ru
+chat2desk.com      # omnichannel communications platform and chat center
+citilink.ru
+corp.express
+credistory.ru
+dns-shop.ru
+dom.ru
+dzen.ru
+efin.ru
+eldorado.ru
+express.ms
+finuslugi.ru
+flocktory.com @ads
+flomni.com         # omnichannel communications platform
+foto-planeta.com   # photo encyclopedia of settlements
+gazeta.ru
+gazfond-pn.ru      # non-state pension fund gazfond pension savings
+gazprombank.ru
+gosuslugi.ru
+homecredit.ru
+hostland.ru        # russian hosting provider
+kinopoisk.ru
+kommersant.ru
+lenta.ru
+leroymerlin.ru
+lexgarant.com
+litres.ru          # e-book and audiobook service
+mail.ru
+mail.yandex.ru
+market.yandex.ru
+max.ru
+mcc250.pub.3gppnetwork.org # mobile ims
+meduza.io
+megabitus.com      # russian internet connection quality measurement service
+megafon.ru
+meteoinfo.ru       # hydrometeorological center of russia
+mfa.center
+mironline.ru
+mirpayonline.ru
+mkb.ru
+mos.ru
+mts.ru
+multifactor.ru
+mvideo.ru
+nalog.ru
+nbki.ru
+netmonet.co
+ngenix.net         # ngenix is a russian provider of acceleration and security services for public web resources
+nplus1.ru          # n+1, popular science magazine
+ognihome.com       # ogni home resident portal
+ok.ru
+otkritie.ru
+otzovik.com        # russian review website
+ozon.com
+ozon.ru
+pochta.ru          # russian post
+ponyexpress.ru     # courier delivery service
+psbank.ru
+public.express
+qms.ru             # russian internet speed testing service
+raiffeisen.ru
+randomgodbot.com   # telegram randomizer bot
+rbc.ru
+renins.com
+renins.ru
+ria.ru
+robohall.tech      # robohall, creative engineering and robotics studio (moscow, russia)
+roistat.com @ads
+rosbank.ru
+rshb.ru
+ru.com
+ru.net
+rutube.ru
+rzd.ru
+samokat.ru
+sber.ru
+sberbank.com
+sberbank.ru
+sistema-capital.com
+srv-hub.org        # website builder
+t1.cloud           # russian cloud storage provider
+targetads.io @ads
+tass.ru
+taxsee.com         # taxi for business (self-employed drivers)
+tbank.ru
+tele2.ru
+terratraf.com @ads
+terratraf.io @ads
+tinkoff.com
+tinkoff.ru
+tips.tips
+vigo.tech          # vigo, network and content delivery quality monitoring
+vimu.tv            # vimu media player
+vk.com
+vkusvill.ru
+vtb.ru
+vtb24.ru
+wildberries.ru
+xlnk.ms
+ya.ru
+yandex.com
+yandex.market
+yandex.net
+yandex.ru
+yourgood.app       # crm for small business
+zapishu.me         # online booking and crm service for private specialists

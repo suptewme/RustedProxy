@@ -1,0 +1,39 @@
+# Build results
+/build/
+**/build/
+
+# Dart / Flutter tooling
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/coverage/
+app.*.symbols
+app.*.map.json
+*.iml
+
+# Rust
+**/target/
+
+# IDE
+.idea/
+.vscode/
+*.ipr
+*.iws
+.history
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local logs
+*.log
+
+# Signing material — never commit
+android/key.properties
+*.jks
+*.keystore
+
+# Native artifacts copied from `rust_core/target` are rebuilt by the
+# build script; only the prebuilt libraries that ship with the APK are kept.

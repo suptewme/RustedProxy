@@ -108,15 +108,6 @@ pub fn parse_line(line: &str, default_proto: &str) -> Option<ProxyConfig> {
     None
 }
 
-fn name_from_fragment(parsed: &Url) -> String {
-    parsed
-        .fragment()
-        .map(url_decode)
-        .unwrap_or_default()
-        .trim()
-        .to_string()
-}
-
 fn parse_ss(line: &str) -> Option<ProxyConfig> {
     let rest = line.strip_prefix("ss://")?;
     let (body, fragment) = match rest.split_once('#') {
@@ -177,7 +168,20 @@ fn parse_trojan(line: &str) -> Option<ProxyConfig> {
     let host = parsed.host_str()?.to_string();
     let port = parsed.port().unwrap_or(443);
     let params = parsed.query_pairs().into_owned().collect::<std::collections::HashMap<_, _>>();
-    let sni = params.get("sni").or_else(|| params.get("peer")).cloned().unwrap_or_else(|| host.clone());
+    // Only raw TCP framing is implemented, same as VLESS: a `type=ws|grpc`
+    // node expects a WebSocket/gRPC upgrade we never send, so the TLS record
+    // layer just sees the server's HTTP response and reports
+    // "InvalidContentType". Skipping them keeps the pool honest.
+    let network = params.get("type").map(|s| s.to_lowercase()).unwrap_or_default();
+    if !matches!(network.as_str(), "" | "tcp" | "raw" | "none") {
+        return None;
+    }
+    let sni = params
+        .get("sni")
+        .or_else(|| params.get("peer"))
+        .or_else(|| params.get("host"))
+        .cloned()
+        .unwrap_or_else(|| host.clone());
     let name = if fragment.is_empty() { format!("Trojan {host}") } else { fragment };
     Some(ProxyConfig {
         id: format!("trojan-{host}-{port}"),
@@ -211,6 +215,14 @@ fn parse_vless(line: &str) -> Option<ProxyConfig> {
     let security = params.get("security").map(|s| s.to_lowercase()).unwrap_or_default();
     if security == "reality" {
         // REALITY needs the XTLS/uTLS handshake which this core does not ship.
+        return None;
+    }
+    // Only raw TCP framing is implemented. WS/gRPC/HTTP transports wrap the
+    // VLESS header in another protocol and would never complete a handshake,
+    // so they are skipped instead of silently filling the scan with dead
+    // candidates.
+    let network = params.get("type").map(|s| s.to_lowercase()).unwrap_or_default();
+    if !matches!(network.as_str(), "" | "tcp" | "raw") {
         return None;
     }
     let tls = matches!(security.as_str(), "tls" | "xtls");
@@ -298,4 +310,56 @@ pub fn build_link(p: &ProxyConfig) -> Result<String> {
 
 fn urlencoding(s: &str) -> String {
     percent_encoding::utf8_percent_encode(s, percent_encoding::NON_ALPHANUMERIC).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trojan_always_uses_tls_and_keeps_sni() {
+        let p = parse_line(
+            "trojan://pass%40123@example.com:443?sni=cdn.example.net#Node",
+            "",
+        )
+        .expect("trojan parses");
+        assert!(p.tls);
+        assert_eq!(p.sni, "cdn.example.net");
+        assert_eq!(p.password, "pass@123");
+    }
+
+    #[test]
+    fn trojan_websocket_is_rejected() {
+        // A `type=ws` node needs a WebSocket upgrade we never send; dialling it
+        // as raw TLS yields "InvalidContentType" and pollutes the scan.
+        let line = "trojan://pass@1.2.3.4:443?security=tls&sni=x.example&type=ws&path=/&Host=x.example#W";
+        assert!(parse_line(line, "").is_none());
+        let tcp = "trojan://pass@1.2.3.4:443?security=tls&sni=x.example&type=tcp#T";
+        assert!(parse_line(tcp, "").is_some());
+    }
+
+    #[test]
+    fn trojan_bare_ip_without_sni_keeps_the_ip() {
+        // Bare-IP Trojan links have no name to route on; the hop layer must
+        // still keep the endpoint instead of dropping the node.
+        let p = parse_line("trojan://humanity@45.130.125.112:443?security=tls#R", "")
+            .expect("bare-ip trojan parses");
+        assert_eq!(p.host, "45.130.125.112");
+        assert_eq!(p.sni, "45.130.125.112");
+        assert!(p.tls);
+    }
+
+    #[test]
+    fn vless_reality_is_rejected_not_silently_broken() {
+        let line = "vless://aa1a9052-720f-4bb0-92be-21b6baf9f386@1.2.3.4:443?encryption=none&security=reality&sni=a.com&pbk=x&fp=chrome#R";
+        assert!(parse_line(line, "").is_none());
+    }
+
+    #[test]
+    fn vless_tls_keeps_sni() {
+        let line = "vless://aa1a9052-720f-4bb0-92be-21b6baf9f386@1.2.3.4:443?encryption=none&security=tls&sni=front.example.com#V";
+        let p = parse_line(line, "").expect("vless tls parses");
+        assert!(p.tls);
+        assert_eq!(p.sni, "front.example.com");
+    }
 }

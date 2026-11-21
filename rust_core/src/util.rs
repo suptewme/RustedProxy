@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use rand::RngCore;
-use std::net::{IpAddr, SocketAddr};
+use std::net::IpAddr;
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 

@@ -35,6 +35,12 @@ hex = "0.4"
 once_cell = "1"
 uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
+# Legacy Shadowsocks stream ciphers (aes-*-cfb, rc4-md5) still used by many
+# public free-node lists. AES-CFB128 is implemented by hand in ss.rs, so there
+# is no cfb-mode dependency.
+aes = "0.8"
+ctr = "0.9"
+rc4 = "0.1"
 
 [target.'cfg(target_os = "android")'.dependencies]
 tun2proxy = { version = "0.8.7", default-features = false }

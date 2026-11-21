@@ -990,8 +990,8 @@ async fn relay(
     remote: BoxStream,
     dpi: Option<(String, usize)>,
 ) {
-    let (mut cr, mut cw) = client.into_split();
-    let (mut rr, mut rw) = tokio::io::split(remote);
+    let (mut cr, cw) = client.into_split();
+    let (rr, mut rw) = tokio::io::split(remote);
     // The first client chunk is forwarded manually so that DPI evasion can
     // split the TLS ClientHello into small TCP segments.
     let mut initial = vec![0u8; 16384];
@@ -1316,7 +1316,10 @@ pub async fn check_proxy(p: &ProxyConfig, timeout_ms: u64, check_url: &str) -> V
         )
         .await;
     match result {
-        Ok(resp) if resp.status < 500 => {
+        // A masquerade fallback page (wrong password on a Trojan node) is a
+        // 400/403 from a web server, so anything >= 400 must not count as a
+        // live proxy. This matches the scanner's own `check_one` rule.
+        Ok(resp) if resp.status < 400 => {
             let latency = start.elapsed().as_millis() as i64;
             let mut geo = geo::lookup_ip(&p.host).unwrap_or_default();
             if geo.city.is_empty() {
@@ -1333,7 +1336,7 @@ pub async fn check_proxy(p: &ProxyConfig, timeout_ms: u64, check_url: &str) -> V
             })
         }
         Ok(resp) => json!({"ok": false, "error": format!("HTTP {}", resp.status)}),
-        Err(e) => json!({"ok": false, "error": e.to_string()}),
+        Err(e) => json!({"ok": false, "error": crate::err_chain(&e)}),
     }
 }
 

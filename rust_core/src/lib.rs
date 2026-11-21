@@ -20,6 +20,18 @@ pub mod util;
 
 use engine::{EngineConfig, EngineSettings};
 
+/// Renders an error together with its cause chain. `anyhow`'s `Display` only
+/// prints the outermost context, which turns every failure into an unhelpful
+/// `hop 1 (vless 1.2.3.4:443)` and hides the real reason from the log and UI.
+pub fn err_chain(e: &anyhow::Error) -> String {
+    let mut out = e.to_string();
+    for cause in e.chain().skip(1) {
+        out.push_str(": ");
+        out.push_str(&cause.to_string());
+    }
+    out
+}
+
 pub static RUNTIME: once_cell::sync::Lazy<tokio::runtime::Runtime> = once_cell::sync::Lazy::new(|| {
     let threads = std::thread::available_parallelism().map(|n| n.get().clamp(2, 4)).unwrap_or(4);
     tokio::runtime::Builder::new_multi_thread()

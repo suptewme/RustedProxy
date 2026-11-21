@@ -902,7 +902,9 @@ class AppState extends ChangeNotifier {
       'speed_check': settings.speedCheck,
       'service_check': settings.serviceCheck,
       'anonymity_check': settings.anonymityCheck,
-      'max_candidates': 1200,
+      // The core scales this down to what its 45 s budget can actually probe
+      // (workers × timeout), so a generous value just means "use the whole pool".
+      'max_candidates': 6000,
       'protocol_filter': scanProtocol,
       'require_encrypted': scanEncrypted,
     };

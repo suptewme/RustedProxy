@@ -114,8 +114,9 @@ pub fn default_sources(mode: &str) -> Vec<ScanSource> {
         ("https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/all/data.txt", ""),
         ("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5", "socks5"),
         ("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http", "http"),
-        ("https://www.proxy-list.download/api/v1/get?type=socks5", "socks5"),
-        ("https://www.proxy-list.download/api/v1/get?type=socks4", "socks4"),
+        ("https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks4.txt", "socks4"),
+        ("https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks5.txt", "socks5"),
+        ("https://raw.githubusercontent.com/zloi-user/hideip.me/main/http.txt", "http"),
     ] {
         out.push(ScanSource { url: url.into(), proto: proto.into() });
     }
@@ -134,6 +135,10 @@ pub struct ScanState {
     pub started: Mutex<Option<Instant>>,
     pub source_stats: Mutex<Vec<Value>>,
 }
+
+/// Upper bound for the probe phase; `start` scales the candidate pool so the
+/// whole pool fits into this window with full per-node timeouts.
+const GRACE_SECS: u64 = 45;
 
 pub static SCAN: Lazy<ScanState> = Lazy::new(|| ScanState {
     running: AtomicBool::new(false),
@@ -177,6 +182,21 @@ pub fn start(cfg: ScanConfig) {
     if SCAN.running.swap(true, Ordering::SeqCst) {
         return;
     }
+    // Auto-budget: the two extra passes (anonymity + speed) are sequential per
+    // node, so with a large per-node timeout a 1200-node scan would need
+    // several minutes and the bounded grace period below would silently drop
+    // the tail. Scale the candidate pool so every node gets its full timeout.
+    let mut cfg = cfg;
+    let timeout_s = (cfg.timeout_ms.clamp(800, 15000) as f64 / 1000.0).max(0.8);
+    let passes = 1.0
+        + if cfg.anonymity_check { 1.0 } else { 0.0 }
+        + if cfg.speed_check { 1.0 } else { 0.0 };
+    let workers = cfg.workers.clamp(20, 400) as f64;
+    let budget = (GRACE_SECS as f64 * workers) / (timeout_s * passes);
+    let auto_cap = (budget.round() as usize).clamp(200, 6000);
+    if cfg.max_candidates > auto_cap {
+        cfg.max_candidates = auto_cap;
+    }
     SCAN.cancel.store(false, Ordering::SeqCst);
     SCAN.checked.store(0, Ordering::SeqCst);
     SCAN.total.store(0, Ordering::SeqCst);
@@ -193,7 +213,7 @@ pub fn start(cfg: ScanConfig) {
     // `tokio::spawn` there aborts the process.
     crate::RUNTIME.spawn(async move {
         if let Err(e) = run(cfg).await {
-            SCAN.errors.lock().unwrap().push(e.to_string());
+            SCAN.errors.lock().unwrap().push(crate::err_chain(&e));
             engine_ref.log("ERROR", format!("scanner: {e}"));
         }
         set_phase("done");
@@ -333,32 +353,33 @@ async fn run(cfg: ScanConfig) -> Result<()> {
             let result = check_one(&cand, &cfg, resolver, &anon_budget, &speed_budget, &service_budget).await;
             SCAN.checked.fetch_add(1, Ordering::SeqCst);
             if let Some(v) = result {
-                let mut list = SCAN.found.lock().unwrap();
-                // Long scans can find thousands of nodes; the UI cannot render
-                // that, so keep the 600 fastest.
-                if list.len() < 600 {
-                    list.push(v);
-                } else {
-                    // Already full: keep the faster of the two.
-                    let worst = list
-                        .iter()
-                        .enumerate()
-                        .max_by_key(|(_, item)| item.get("latency").and_then(|x| x.as_i64()).unwrap_or(0))
-                        .map(|(i, item)| (i, item.get("latency").and_then(|x| x.as_i64()).unwrap_or(0)));
-                    let new_latency = v.get("latency").and_then(|x| x.as_i64()).unwrap_or(9999);
-                    if let Some((idx, worst_latency)) = worst {
-                        if new_latency < worst_latency {
-                            list[idx] = v;
-                        }
-                    }
-                }
+                // Long lists: keep up to 600 results but never refill the whole vector on
+    // every hit (that was O(n) under a mutex for each found node). A sorted
+    // budget check decides whether a node is even worth comparing.
+    const MAX_FOUND: usize = 600;
+    let mut list = SCAN.found.lock().unwrap();
+    if list.len() < MAX_FOUND {
+        list.push(v);
+    } else {
+        let new_latency = v.get("latency").and_then(|x| x.as_i64()).unwrap_or(9999);
+        if let Some((idx, worst)) = list
+            .iter()
+            .enumerate()
+            .max_by_key(|(_, item)| item.get("latency").and_then(|x| x.as_i64()).unwrap_or(0))
+        {
+            let worst_latency = worst.get("latency").and_then(|x| x.as_i64()).unwrap_or(9999);
+            if new_latency < worst_latency {
+                list[idx] = v;
+            }
+        }
+    }
             }
         }));
     }
 
     // Bounded grace period: wait for the probes, but never hang the scan on a
-    // single stuck node.
-    let deadline = Instant::now() + Duration::from_secs(45);
+    // single stuck node. `start` sizes the candidate pool against this budget.
+    let deadline = Instant::now() + Duration::from_secs(GRACE_SECS);
     for handle in probes {
         if SCAN.cancel.load(Ordering::SeqCst) || Instant::now() > deadline {
             handle.abort();

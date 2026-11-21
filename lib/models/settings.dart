@@ -28,7 +28,9 @@ class AppSettings {
   bool udpTcp = false;
   String androidMode = 'vpn'; // vpn | local
   int workers = 200;
-  int timeoutMs = 2000;
+  // Free public nodes route through crowded proxies on the other side of the
+  // planet; 2000 ms was rejecting ~9 out of 10 nodes that do answer.
+  int timeoutMs = 4000;
   String checkUrl = 'https://cp.cloudflare.com/generate_204';
   bool speedCheck = true;
   bool serviceCheck = false;

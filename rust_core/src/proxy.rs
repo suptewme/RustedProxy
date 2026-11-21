@@ -152,7 +152,6 @@ impl Dialer {
         target: &Target,
         base: Option<BoxStream>,
     ) -> Result<BoxStream> {
-        let proto = proxy.proto.to_lowercase();
         let mut stream: BoxStream = match base {
             Some(s) => s,
             None => {
@@ -160,20 +159,32 @@ impl Dialer {
                 Box::new(tcp)
             }
         };
+        let proto = proxy.proto.to_lowercase();
+        // Trojan and HTTPS proxies always speak TLS, no matter whether the
+        // link carried an explicit flag. Only SS/HTTP/SOCKS/VLESS decide by
+        // their own security setting.
         let need_tls = proxy.tls
             || matches!(proto.as_str(), "https" | "trojan")
             || (proto == "vless" && proxy.tls);
         if need_tls {
+            // SNI drives routing on shared frontends, so prefer the link's
+            // advertised name and fall back to the endpoint itself.
             let sni = if !proxy.sni.is_empty() {
                 proxy.sni.clone()
-            } else if proxy.host.parse::<IpAddr>().is_ok() {
-                // Certificate validation against a bare IP is expected for
-                // self-hosted nodes only when SNI is provided explicitly.
-                proxy.host.clone()
             } else {
                 proxy.host.clone()
             };
-            stream = tls::wrap(stream, &sni).await.with_context(|| format!("TLS to {sni}"))?;
+            // A user's own HTTPS proxy is expected to have a valid
+            // certificate; free Trojan/VLESS nodes never do, and neither does
+            // a bare-IP endpoint, so those skip chain validation.
+            let verify = proto == "https" && proxy.host.parse::<IpAddr>().is_err();
+            stream = if verify {
+                tls::wrap(stream, &sni).await.with_context(|| format!("TLS to {sni}"))?
+            } else {
+                tls::wrap_insecure(stream, &sni)
+                    .await
+                    .with_context(|| format!("TLS to {sni}"))?
+            };
         }
         match proto.as_str() {
             "socks5" => {
@@ -190,7 +201,7 @@ impl Dialer {
             }
             "ss" | "shadowsocks" => {
                 let wrapped =
-                    crate::ss::wrap(stream, &proxy.password, &proxy.cipher).await?;
+                    crate::ss::wrap(stream, &proxy.password, &proxy.cipher, target).await?;
                 Ok(wrapped)
             }
             "trojan" => {

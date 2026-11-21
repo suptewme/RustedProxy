@@ -43,7 +43,8 @@ fn main() {
             if links::parse_line(line, "").is_none() {
                 failed += 1;
                 if failed <= 12 {
-                    println!("  SKIP {}", &line[..line.len().min(110)]);
+                    let preview: String = line.chars().take(110).collect();
+                    println!("  SKIP {preview}");
                 }
             }
         }

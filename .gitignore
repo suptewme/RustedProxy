@@ -38,3 +38,4 @@ android/key.properties
 # Native artifacts copied from `rust_core/target` are rebuilt by the
 # build script; only the prebuilt libraries that ship with the APK are kept.*.log
 build_log*.txt
+release/
